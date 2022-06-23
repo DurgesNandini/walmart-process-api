@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:request-config name="HTTPS_Request_configuration" doc:name="HTTP Request configuration" doc:id="998ed799-de89-4958-aa20-0cfdfa7bbd00" responseTimeout="${walmartRapid.sys.timeout}">
+		<http:request-connection protocol="HTTPS" host="${walmartRapid.sys.host}" port="${walmartRapid.sys.port}" >
+			<reconnection >
+				<reconnect frequency="${walmartRapid.sys.frequency}" count="${walmartRapid.sys.reconnectionAttempts}" />
+			</reconnection>
+		</http:request-connection>
+	</http:request-config>
+	<flow name="GetAllDeliveriesFlow" doc:id="2a516728-9517-4cfc-babc-04742df3cdd9" >
+		<logger level="INFO" doc:name='"GetAllDeliveryDetails_Start"' doc:id="382c80f6-c386-4bb9-97a5-6c7a4054715c" message='"GetAllDeliveryDetails_Start"' />
+		<http:request method="GET" doc:name='"Get All Delivery Details Request"' doc:id="2232c97b-8fd5-4fc5-bdd8-908c73185769" config-ref="HTTP_Request_configuration" path="${walmartDelivery.sys.path.getProductsPath}">
+			<http:headers ><![CDATA[#[{
+	"client_id": p('secure::walmart.sys.clientId'),
+	"client_secret": p('secure::walmart.sys.clientSecret')
+}]]]></http:headers>
+		</http:request>
+		<logger level="INFO" doc:name='"GetAllDeliveryDetails_End"' doc:id="2cc60347-c6ff-47c4-9288-e0b87eaef4e4" message='"GetAllDeliveryDetails_End"' />
+	</flow>
+	<flow name="DeliveryByOrderIDFlow" doc:id="5e362d59-1a9c-421b-9f5a-52d16c29f70a" >
+		<logger level="INFO" doc:name="Before Request" doc:id="fcfc4822-f022-4a4d-9f77-93ffa98950f8" />
+		<http:request method="GET" doc:name="GET Delivery by Order ID Request" doc:id="609c99d3-d024-467e-b6a9-9a95c7be96ac" config-ref="HTTP_Request_configuration" path="${walmartDelivery.sys.path.getProductsOrderId}">
+			<http:headers ><![CDATA[#[{
+	"client_id": p('secure::walmart.sys.clientId'),
+	"client_secret": p('secure::walmart.sys.clientSecret')
+}]]]></http:headers>
+			<http:uri-params ><![CDATA[#[output application/java
+---
+{
+	"orderId" : attributes.uriParams.'order-id'
+}]]]></http:uri-params>
+		</http:request>
+		<logger level="INFO" doc:name="After Request" doc:id="d84fce5d-94ef-467e-a697-d0ccfeffe1d2" />
+	</flow>
+	<flow name="ProductDetails_by_usItemId" doc:id="64fe979d-869e-4339-a983-4c85023f68c7">
+		<set-variable value="#[payload.quantity]" doc:name="quantity" doc:id="4c5e5e11-fc46-4f71-a6a9-b6c4fd7dc96d" variableName="quantity"/>
+		<ee:transform doc:name="Transform Message" doc:id="07a13e53-189c-470f-b392-02996f6c90c1" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Before Request" doc:id="8747765a-9b4d-49ba-8441-27716d71f9fa" message="#[payload]"/>
+		<http:request method="GET" doc:name="GET products Request" doc:id="c6f55717-86d8-4c82-a07f-c0db1044784e" config-ref="HTTPS_Request_configuration" path="${walmartRapid.sys.path.getProductDetailsPath}">
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"X-RapidAPI-Host" : "walmart.p.rapidapi.com",
+	"X-RapidAPI-Key" : "3023a67861msh0eb707c9fd31682p12e9c9jsn4bd95787f3d4"
+}]]]></http:headers>
+			<http:query-params ><![CDATA[#[output application/java
+---
+{
+	"usItemId" : payload.usItemID
+}]]]></http:query-params>
+		</http:request>
+		<logger level="INFO" doc:name="After Request" doc:id="b633f9c2-0e28-4c29-8c75-ad99edcaeb5f" message="#[payload]"/>
+		<ee:transform doc:name="Getting Postal Code" doc:id="ad59772b-a25a-4195-92ec-ced605f26baf">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="postalCode" ><![CDATA[%dw 2.0
+output application/json
+---
+payload.data.product.location.postalCode]]></ee:set-variable>
+				<ee:set-variable variableName="productTypeId" ><![CDATA[%dw 2.0
+output application/json
+---
+payload.data.product.productTypeId]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Before Request" doc:id="71b75b5f-6a70-4100-9327-50201f4bbf34" message="#[payload]"/>
+		<http:request method="GET" doc:name="GET stores Request" doc:id="222d55d2-c612-498c-b53c-357a50987b91" config-ref="HTTPS_Request_configuration" path="${walmartRapid.sys.path.getStoresListPath}">
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"X-RapidAPI-Host" : "walmart.p.rapidapi.com",
+	"X-RapidAPI-Key" : "951c57a264mshf508ab144f2adf6p101037jsn8328edcd25ff"
+}]]]></http:headers>
+			<http:query-params><![CDATA[#[output application/java
+---
+{
+	"postalCode" : vars.postalCode
+}]]]></http:query-params>
+		</http:request>
+		<logger level="INFO" doc:name="After Request" doc:id="02647882-694f-4604-ad06-b91014ee0067" message="#[payload]"/>
+		<ee:transform doc:name="Searching Nearest Store" doc:id="77e0d8f7-256e-4a26-8e3e-f721caa680da">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload.data.storesBySearchTerm.stores
+minBy $.distance
+// find nearest store which is open 24 hours
+//filter($.open24Hours !=null)
+//minBy $.distance
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<ee:transform doc:name="Extracting store's info in String" doc:id="b26f9966-9f41-4d49-9468-61d5b3b66ff6">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="checkOpen24Hours"><![CDATA[%dw 2.0
+output application/java
+---
+if(payload.operationalHours.open24Hours==null)
+ false
+else
+  true]]></ee:set-variable>
+				<ee:set-variable variableName="storeName" ><![CDATA[%dw 2.0
+output application/json
+---
+payload.displayName]]></ee:set-variable>
+				<ee:set-variable variableName="storeId" ><![CDATA[%dw 2.0
+output application/json
+---
+payload.id]]></ee:set-variable>
+				<ee:set-variable variableName="storeAddress" ><![CDATA[%dw 2.0
+output application/json
+---
+if(payload != null)
+{
+	"address": payload.address.postalCode as String ++ " "++ payload.address.address as String 
+	++ " " ++ payload.address.city as String ++ " " ++ payload.address.state as String  ++ " " ++ payload.address.country as String
+}else
+{
+ "message": 'No Store available'	
+}
+]]></ee:set-variable>
+				<ee:set-variable variableName="storeDistance" ><![CDATA[%dw 2.0
+output application/json
+---
+payload.distance]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Transforming Payload" doc:id="f9216a26-0cf1-4e85-a15f-883010d9e85e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+ {
+        "productTypeID": vars.productTypeId,
+        "quantity": vars.quantity,
+        "storeID": vars.storeId,
+        "storeName": vars.storeName,
+        "storeAddress": vars.storeAddress.address,
+        "storeDistance": vars.storeDistance,
+        "storeContactNumber": "987645636"
+ }
+ ]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Before Request" doc:id="5bb4e848-cb4a-46da-9bfa-1f44a2acd103" message="#[payload]"/>
+		<http:request method="POST" doc:name="Post deliverable Info Request" doc:id="25c91f82-169f-4a4f-b0ac-6ab18b125f55" config-ref="HTTP_Request_configuration" path="${walmartDelivery.sys.path.getProductsPath}">
+			<http:headers ><![CDATA[#[{
+	"client_id": p('secure::walmart.sys.clientId'),
+	"client_secret": p('secure::walmart.sys.clientSecret')
+}]]]></http:headers>
+		</http:request>
+		<logger level="INFO" doc:name="After Request" doc:id="449b083e-4e9c-4503-b3aa-da0aba3acf46" message="#[payload]"/>
+	</flow>
+</mule>

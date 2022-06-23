@@ -1,0 +1,33 @@
+#The API ID in API Manager    
+api:
+ id: "17674105"
+
+jsonLogger: 
+  disabledFields: "content"
+  maskedFields: ""
+
+http:
+  "host": "0.0.0.0"
+  "port": "8081"
+
+walmartDelivery:
+  sys:
+    host : "walmart-sys-api.us-e2.cloudhub.io"
+    port : "80"
+    reconnectionAttempts : "3"
+    frequency : "2000" 
+    timeout: "60000"
+    path:
+      getProductsPath: "/api/products"
+      getProductsOrderId: "/api/products/{orderId}"
+ 
+walmartRapid:
+  sys:
+    host : "walmart.p.rapidapi.com"
+    port : "443"
+    reconnectionAttempts : "3"
+    frequency : "2000" 
+    timeout: "60000"
+    path:
+      getProductDetailsPath: "/products/v3/get-details/"
+      getStoresListPath: "/stores/list"
