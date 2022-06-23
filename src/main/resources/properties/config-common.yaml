@@ -1,0 +1,5 @@
+### API Details - Common Props ###
+api:
+ name: "Walmart REST API"
+ version: "v1"
+ 
